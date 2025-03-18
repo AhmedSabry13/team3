@@ -4,12 +4,12 @@ import json
 
 app = Flask(__name__)
 
-# Load books data from books.json
+# Load books data from books.json osos
 def load_books():
     with open('data/books.json') as f:
         return json.load(f)
 
-# Save updated books data to books.json
+# Save updated books data to books.json hamada 18/03/2025
 def save_books(books):
     with open('data/books.json', 'w') as f:
         json.dump(books, f, indent=4)
