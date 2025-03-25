@@ -1,0 +1,59 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "mariam-nassif-ai/team3:latest"
+    }
+
+    stages {
+        stage('Clone Repository') {
+            steps {
+                git 'https://github.com/team3.git'  // Replace with your actual repo URL
+            }
+        }
+
+        stage('Setup Virtual Environment') {
+            steps {
+                sh 'python3 -m venv venv'
+                sh 'source venv/bin/activate && pip install --upgrade pip'
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'source venv/bin/activate && pip install -r requirements.txt'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                sh 'source venv/bin/activate && pytest tests/'  // Update test folder if needed
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t $IMAGE_NAME .'
+            }
+        }
+
+        stage('Push Docker Image to AWS ECR') {
+            steps {
+                withCredentials([string(credentialsId: 'AWS_ECR_LOGIN', variable: 'ECR_LOGIN')]) {
+                    sh '''
+                    aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin <your-aws-ecr-repo>
+                    docker tag $IMAGE_NAME <your-aws-ecr-repo>:$BUILD_NUMBER
+                    docker tag $IMAGE_NAME <your-aws-ecr-repo>:latest
+                    docker push <your-aws-ecr-repo>:$BUILD_NUMBER
+                    docker push <your-aws-ecr-repo>:latest
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy to Server') {
+            steps {
+                sshagent(['your-ssh-credential-id']) {
+                    sh '''
+                    ssh user@your-server "docker pull <your-aws-ecr-repo>:latest && docker stop team3 || true && docker rm team3 || true && docker run -d -p 5000:5000 --name team3 <your-aws-ecr-repo>:latest"
+                    '''
